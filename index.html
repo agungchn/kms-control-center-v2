@@ -95,19 +95,25 @@
       const now=Date.now();
       el.innerHTML=items.slice(0,8).map(i=>'<div class="liveitem"><b>'+esc(i.from)+'</b> <span class="to">→ '+esc(i.to)+'</span><p>'+esc(String(i.text).slice(0,160))+'</p><small>'+ago((now-(i.t||now))/1000)+'</small></div>').join('');
     }
+    const API_ENDPOINTS=['/api/state','https://kms-webhook.agungclaw.site/webhook/kms-dashboard-state'];
+    let apiActive=0;
     async function refresh(){
-      try{
-        const res=await fetch('/api/state',{cache:'no-store'});
-        const d=await res.json();
-        if(!res.ok||!d.ok)throw new Error(d.reason||res.status);
-        renderAgents(d.agents);renderLiveTasks(d.tasks);renderFeed(d);
-        document.querySelector('#syncLine').textContent='Data live tersinkron '+new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
-        document.querySelector('#liveDot').style.background='#34bd7a';
-      }catch(e){
-        document.querySelector('#syncLine').textContent='Data live belum aktif — mode statis';
-        document.querySelector('#liveDot').style.background='#a75d00';
-        renderAgents([]);renderLiveTasks([]);renderFeed({messages:[],comms:[]});
+      for(let i=0;i<API_ENDPOINTS.length;i++){
+        const idx=(apiActive+i)%API_ENDPOINTS.length;
+        try{
+          const res=await fetch(API_ENDPOINTS[idx],{cache:'no-store'});
+          const d=await res.json();
+          if(!res.ok||!d.ok)continue;
+          apiActive=idx;
+          renderAgents(d.agents);renderLiveTasks(d.tasks);renderFeed(d);
+          document.querySelector('#syncLine').textContent='Data live tersinkron '+new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+          document.querySelector('#liveDot').style.background='#34bd7a';
+          return;
+        }catch(e){}
       }
+      document.querySelector('#syncLine').textContent='Data live belum aktif — mode statis';
+      document.querySelector('#liveDot').style.background='#a75d00';
+      renderAgents([]);renderLiveTasks([]);renderFeed({messages:[],comms:[]});
     }
     refresh();setInterval(refresh,5000);
   </script>

@@ -39,7 +39,7 @@
       {name:'Admin & CRM',desc:'Merawat data lead, quotation, order, dan tindak lanjut dari sistem sumber.'},
       {name:'CS & Sales',desc:'Mengumpulkan kebutuhan calon pelanggan tanpa menjanjikan hal di luar SOP.'},
       {name:'Marketing',desc:'Menerjemahkan target bisnis menjadi kampanye dan follow-up pelanggan.'},
-      {name:'SEO & Content',desc:'Mengubah peluang SEO menjadi brief dan draf; publikasi tetap melalui approval.'},
+      {name:'SEO & Content',desc:'Mengubah peluang SEO menjadi brief, draf, dan artikel siap terbit; audit 18/18 otomatis, publish mandiri tanpa approval.'},
       {name:'Operations',desc:'Menandai order berisiko dan pekerjaan desain, produksi, QC, atau pengiriman.'}];
     const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     function ago(sec){if(!isFinite(sec))return'belum pernah aktif';if(sec<60)return Math.max(1,Math.floor(sec))+' detik lalu';if(sec<3600)return Math.floor(sec/60)+' menit lalu';if(sec<86400)return Math.floor(sec/3600)+' jam lalu';return Math.floor(sec/86400)+' hari lalu'}

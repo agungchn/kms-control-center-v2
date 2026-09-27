@@ -34,13 +34,15 @@
     document.querySelector('#today').textContent=new Intl.DateTimeFormat('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date());document.querySelector('#dismiss').onclick=e=>{e.currentTarget.closest('.notice').style.display='none';localStorage.setItem('kms-notice','1')};if(localStorage.getItem('kms-notice'))document.querySelector('.notice').style.display='none';document.querySelector('#resetTasks').onclick=()=>{tasks=defaults.map(([t,o,c])=>({t,o,c,done:false}));save();render();toast('Prioritas dikembalikan ke daftar awal.')};document.querySelectorAll('[data-approval-action]').forEach(button=>button.onclick=async()=>{const approval=button.closest('.approval'),action=button.dataset.approvalAction,item=button.dataset.approvalItem;button.disabled=true;try{await fetch('https://kms-webhook.agungclaw.site/webhook/kms-approval-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,item}),mode:'no-cors'});approval.innerHTML='<b>'+action+'</b><p>'+item+'</p><span class="agentstatus">● Terkirim ke Telegram</span>';const c=document.querySelector('#approvalCount');if(c) c.textContent=Math.max(0, parseInt(c.textContent||'0')-1);toast('Keputusan diteruskan ke Telegram.');}catch(error){button.disabled=false;toast('Belum tersambung. Coba lagi sebentar.')}});render();
 
     /* ===== LIVE: agent status + tugas + komunikasi (Airtable via /api/state) ===== */
+    const NICK={'CEO / Orchestrator':'Andra','Admin & CRM':'Sari','CS & Sales':'Dewi','Marketing':'Nadia','SEO & Content':'Raka','Operations':'Bagas'};
+    const nick=r=>NICK[String(r||'').trim()]||r||'Agen';
     const AGENTS=[
-      {name:'CEO / Orchestrator',desc:'Merangkum prioritas, hambatan, dan keputusan yang perlu Anda ambil.'},
-      {name:'Admin & CRM',desc:'Merawat data lead, quotation, order, dan tindak lanjut dari sistem sumber.'},
-      {name:'CS & Sales',desc:'Mengumpulkan kebutuhan calon pelanggan tanpa menjanjikan hal di luar SOP.'},
-      {name:'Marketing',desc:'Menerjemahkan target bisnis menjadi kampanye dan follow-up pelanggan.'},
-      {name:'SEO & Content',desc:'Mengubah peluang SEO menjadi brief, draf, dan artikel siap terbit; audit 18/18 otomatis, publish mandiri tanpa approval.'},
-      {name:'Operations',desc:'Menandai order berisiko dan pekerjaan desain, produksi, QC, atau pengiriman.'}];
+      {name:'CEO / Orchestrator',nick:'Andra',desc:'Merangkum prioritas, hambatan, dan keputusan yang perlu Anda ambil.'},
+      {name:'Admin & CRM',nick:'Sari',desc:'Merawat data lead, quotation, order, dan tindak lanjut dari sistem sumber.'},
+      {name:'CS & Sales',nick:'Dewi',desc:'Mengumpulkan kebutuhan calon pelanggan tanpa menjanjikan hal di luar SOP.'},
+      {name:'Marketing',nick:'Nadia',desc:'Menerjemahkan target bisnis menjadi kampanye dan follow-up pelanggan.'},
+      {name:'SEO & Content',nick:'Raka',desc:'Mengubah peluang SEO menjadi brief, draf, dan artikel siap terbit; audit 18/18 otomatis, publish mandiri tanpa approval.'},
+      {name:'Operations',nick:'Bagas',desc:'Menandai order berisiko dan pekerjaan desain, produksi, QC, atau pengiriman.'}];
     const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     function ago(sec){if(!isFinite(sec))return'belum pernah aktif';if(sec<60)return Math.max(1,Math.floor(sec))+' detik lalu';if(sec<3600)return Math.floor(sec/60)+' menit lalu';if(sec<86400)return Math.floor(sec/3600)+' jam lalu';return Math.floor(sec/86400)+' hari lalu'}
     function renderAgents(agents){
@@ -51,7 +53,7 @@
         const rec=map[def.name],ping=Number(rec&&rec.last_ping)||0,act=String(rec&&rec.activity||'');
         const age=ping?now-ping:Infinity;
         const isW=isFinite(age)&&age<120&&!/^\s*diam/i.test(act);
-        if(isW){working++;names.push(def.name)}
+        if(isW){working++;names.push(def.nick)}
         let line;
         if(isW)line=act||'sedang bekerja';
         else if(act&&!/^\s*diam/i.test(act)&&isFinite(age))line=act+' · '+ago(age);
@@ -59,7 +61,7 @@
         else line=rec?'Belum ada aktivitas':'Menunggu koneksi tabel Agents';
         const art=document.createElement('article');
         art.className='card agent'+(isW?' working':'');
-        art.innerHTML='<div class="agenthead"><h3>'+esc(def.name)+'</h3><span class="badge '+(isW?'green':'gray')+'">'+(isW?'Bekerja':'Diam')+'</span></div><p>'+esc(def.desc)+'</p><span class="agentstatus '+(isW?'':'idle')+'">'+(isW?'<span class="pulse"></span>':'● ')+esc(line)+'</span>';
+        art.innerHTML='<div class="agenthead"><h3>'+esc(def.nick)+'</h3><span class="badge '+(isW?'green':'gray')+'">'+(isW?'Bekerja':'Diam')+'</span></div><p><b>'+esc(def.name)+'</b> · '+esc(def.desc)+'</p><span class="agentstatus '+(isW?'':'idle')+'">'+(isW?'<span class="pulse"></span>':'● ')+esc(line)+'</span>';
         grid.appendChild(art);
       });
       document.querySelector('#agentsWorking').textContent=working;
@@ -74,20 +76,20 @@
       if(!sorted.length){el.innerHTML='<p class="empty">Belum ada tugas. Minta bot CEO: "buatkan tugas ..." di Telegram.</p>';return}
       el.innerHTML=sorted.slice(0,8).map(r=>{
         const st=String(r.status||'BACKLOG'),done=/^(DONE|SELESAI)$/i.test(st);
-        return '<div class="liveitem"><b style="'+(done?'text-decoration:line-through;color:#778':'')+'">'+esc(r.task||r['Headline (detail)']&&r['Headline (detail)'].value||'(tugas)')+'</b> <span class="badge '+TEAM_COLOR(r.team||'')+'">'+esc(r.team||'-')+'</span> <span class="badge '+(done?'green':'blue')+'">'+esc(st)+'</span><small>'+esc(r.created_at||'')+(r.source?' · sumber '+esc(r.source):'')+'</small></div>'
+        return '<div class="liveitem"><b style="'+(done?'text-decoration:line-through;color:#778':'')+'">'+esc(r.task||r['Headline (detail)']&&r['Headline (detail)'].value||'(tugas)')+'</b> <span class="badge '+TEAM_COLOR(r.team||'')+'">'+esc(nick(r.team))+'</span> <span class="badge '+(done?'green':'blue')+'">'+esc(st)+'</span><small>'+esc(r.created_at||'')+(r.source?' · sumber '+esc(r.source):'')+'</small></div>'
       }).join('');
     }
     function renderFeed(d){
       const items=[];
       (d.messages||[]).forEach(m=>{
         const t=Number(m.created_at)||0;
-        items.push({t:t*1000,from:m.from_agent,to:m.to_agent,text:m.message});
+        items.push({t:t*1000,from:nick(m.from_agent),to:nick(m.to_agent),text:m.message});
       });
       (d.comms||[]).forEach(c=>{
         if(!c.pesan)return;
         const t=Date.parse(c.created_at||'')||0;
-        const from=/kms-cs-sales|cs/i.test(String(c.agent||''))?'CS & Sales':(c.agent||'Agen');
-        items.push({t:t,from:from,to:/inbound/i.test(String(c.arah||''))?'tim CS & Sales':'pelanggan',text:c.pesan});
+        const from=/kms-cs-sales|cs/i.test(String(c.agent||''))?'Dewi':nick(c.agent);
+        items.push({t:t,from:from,to:/inbound/i.test(String(c.arah||''))?'tim Dewi':'pelanggan',text:c.pesan});
       });
       items.sort((a,b)=>b.t-a.t);
       const el=document.querySelector('#feedList');
